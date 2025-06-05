@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tic Tac Toe Deluxe</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: #f0f0f0;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+    }
+
+    #menu, #status, #scoreboard, #restart-btn {
+      margin-top: 10px;
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(3, 100px);
+      gap: 5px;
+      margin-top: 15px;
+    }
+
+    .cell {
+      width: 100px;
+      height: 100px;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      cursor: pointer;
+      border: 2px solid #444;
+    }
+
+    .cell.taken {
+      pointer-events: none;
+    }
+
+    .cell.win {
+      text-decoration: line-through;
+      color: red;
+    }
+
+    select, button {
+      margin: 5px;
+      padding: 8px 12px;
+      font-size: 1rem;
+    }
+
+    #scoreboard {
+      display: flex;
+      gap: 20px;
+      font-size: 1.2rem;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Tic Tac Toe Deluxe</h1>
+
+  <div id="menu">
+    <label>Mode: 
+      <select id="mode">
+        <option value="pvp">Player vs Player</option>
+        <option value="pve">Player vs Bot</option>
+      </select>
+    </label>
+    <label>Who Starts: 
+      <select id="starter">
+        <option value="player">You</option>
+        <option value="bot">Bot</option>
+      </select>
+    </label>
+    <label>Difficulty: 
+      <select id="difficulty">
+        <option value="easy">Easy</option>
+        <option value="hard">Hard</option>
+      </select>
+    </label>
+    <button onclick="startGame()">Start Game</button>
+  </div>
+
+  <div id="scoreboard">
+    <div>Player 1: <span id="scoreX">0</span></div>
+    <div>Player 2/Bot: <span id="scoreO">0</span></div>
+    <div>Draws: <span id="scoreDraw">0</span></div>
+  </div>
+
+  <div id="board"></div>
+  <div id="status"></div>
+  <button id="restart-btn" onclick="startGame()" style="display:none;">Restart</button>
+
+  <script>
+    const boardEl = document.getElementById("board");
+    const statusEl = document.getElementById("status");
+    const restartBtn = document.getElementById("restart-btn");
+    const scoreXEl = document.getElementById("scoreX");
+    const scoreOEl = document.getElementById("scoreO");
+    const scoreDrawEl = document.getElementById("scoreDraw");
+
+    let cells = [];
+    let board = [];
+    let gameOver = false;
+    let mode = "pvp";
+    let difficulty = "easy";
+    let currentPlayer = "X";
+    let scores = { X: 0, O: 0, Draw: 0 };
+
+    function startGame() {
+      mode = document.getElementById("mode").value;
+      const starter = document.getElementById("starter").value;
+      difficulty = document.getElementById("difficulty")?.value || "easy";
+      currentPlayer = starter === "bot" ? "O" : "X";
+
+      gameOver = false;
+      board = Array(9).fill("");
+      boardEl.innerHTML = "";
+      statusEl.textContent = "";
+      restartBtn.style.display = "none";
+      cells = [];
+
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement("div");
+        cell.classList.add("cell");
+        cell.addEventListener("click", () => handleMove(i));
+        boardEl.appendChild(cell);
+        cells.push(cell);
+      }
+
+      if (mode === "pve" && currentPlayer === "O") {
+        setTimeout(botMove, 300);
+      }
+    }
+
+    function handleMove(index) {
+      if (gameOver || board[index] !== "") return;
+      makeMove(index, currentPlayer);
+      if (!gameOver) {
+        if (mode === "pvp") {
+          currentPlayer = currentPlayer === "X" ? "O" : "X";
+        } else if (mode === "pve" && currentPlayer === "X") {
+          currentPlayer = "O";
+          setTimeout(botMove, 300);
+        }
+      }
+    }
+
+    function botMove() {
+      if (gameOver) return;
+      let index;
+
+      if (difficulty === "easy") {
+        const empty = board.map((v, i) => v === "" ? i : null).filter(i => i !== null);
+        index = empty[Math.floor(Math.random() * empty.length)];
+      } else {
+        index = getBestMove();
+      }
+
+      makeMove(index, "O");
+      if (!gameOver) currentPlayer = "X";
+    }
+
+    function makeMove(index, player) {
+      if (board[index] !== "") return;
+      board[index] = player;
+      cells[index].textContent = player;
+      cells[index].classList.add("taken");
+
+      const result = getWinner(board);
+      if (result) {
+        announceWinner(result.winner, result.pattern);
+        gameOver = true;
+        restartBtn.style.display = "inline-block";
+      } else if (board.every(cell => cell !== "")) {
+        statusEl.textContent = "Draw!";
+        scores.Draw++;
+        scoreDrawEl.textContent = scores.Draw;
+        gameOver = true;
+        restartBtn.style.display = "inline-block";
+      }
+    }
+
+    function getWinner(board) {
+      const winPatterns = [
+        [0,1,2], [3,4,5], [6,7,8],
+        [0,3,6], [1,4,7], [2,5,8],
+        [0,4,8], [2,4,6]
+      ];
+
+      for (const pattern of winPatterns) {
+        const [a, b, c] = pattern;
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+          return { winner: board[a], pattern };
+        }
+      }
+      return null;
+    }
+
+    function announceWinner(winner, pattern) {
+      statusEl.textContent = `${winner === "X" ? "Player 1" : (mode === "pvp" ? "Player 2" : "Bot")} Wins! 🎉`;
+      pattern.forEach(i => {
+        cells[i].classList.add("win");
+      });
+      scores[winner]++;
+      if (winner === "X") {
+        scoreXEl.textContent = scores.X;
+      } else {
+        scoreOEl.textContent = scores.O;
+      }
+    }
+
+    function getBestMove() {
+      let bestScore = -Infinity;
+      let move = -1;
+
+      for (let i = 0; i < 9; i++) {
+        if (board[i] === "") {
+          board[i] = "O";
+          let score = minimax(board, 0, false);
+          board[i] = "";
+          if (score > bestScore) {
+            bestScore = score;
+            move = i;
+          }
+        }
+      }
+      return move;
+    }
+
+    function minimax(boardState, depth, isMaximizing) {
+      const result = getWinner(boardState);
+      if (result) {
+        if (result.winner === "O") return 10 - depth;
+        if (result.winner === "X") return depth - 10;
+      }
+      if (boardState.every(cell => cell !== "")) return 0;
+
+      if (isMaximizing) {
+        let best = -Infinity;
+        for (let i = 0; i < 9; i++) {
+          if (boardState[i] === "") {
+            boardState[i] = "O";
+            best = Math.max(best, minimax(boardState, depth + 1, false));
+            boardState[i] = "";
+          }
+        }
+        return best;
+      } else {
+        let best = Infinity;
+        for (let i = 0; i < 9; i++) {
+          if (boardState[i] === "") {
+            boardState[i] = "X";
+            best = Math.min(best, minimax(boardState, depth + 1, true));
+            boardState[i] = "";
+          }
+        }
+        return best;
+      }
+    }
+  </script>
+</body>
+</html>
+
